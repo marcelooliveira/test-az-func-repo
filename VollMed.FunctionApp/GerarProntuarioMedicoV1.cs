@@ -5,16 +5,16 @@ using Microsoft.Extensions.Logging;
 
 namespace VollMed.FunctionApp;
 
-public class GerarProntuarioMedicoV8
+public class GerarProntuarioMedicoV1
 {
-    private readonly ILogger<GerarProntuarioMedicoV8> _logger;
+    private readonly ILogger<GerarProntuarioMedicoV1> _logger;
 
-    public GerarProntuarioMedicoV8(ILogger<GerarProntuarioMedicoV8> logger)
+    public GerarProntuarioMedicoV1(ILogger<GerarProntuarioMedicoV1> logger)
     {
         _logger = logger;
     }
 
-    [Function("GerarProntuarioMedicoV8")]
+    [Function("GerarProntuarioMedicoV1")]
     public IActionResult Run([HttpTrigger(AuthorizationLevel.Anonymous, "get", "post")] HttpRequest req)
     {
         _logger.LogInformation("C# HTTP trigger function processed a request.");
