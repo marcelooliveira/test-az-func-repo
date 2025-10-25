@@ -14,7 +14,7 @@ public class GerarProntuarioMedico
         _logger = logger;
     }
 
-    [Function("GerarProntuarioMedicoV3")]
+    [Function("GerarProntuarioMedicoV4")]
     public IActionResult Run([HttpTrigger(AuthorizationLevel.Anonymous, "get", "post")] HttpRequest req)
     {
         _logger.LogInformation("C# HTTP trigger function processed a request.");
