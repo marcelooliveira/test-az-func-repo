@@ -51,71 +51,80 @@ Medicação em uso:
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "prontuario/{id:int}")] HttpRequest req,
         int id)
     {
-        _logger.LogInformation($"Processando prontuário do médico ID {id}");
-
-        var db = _redis.GetDatabase();
-
-        // 1️. Tenta obter do cache
-        string? prontuarioJson = await db.StringGetAsync($"consulta:{id}");
-
-        Prontuario? prontuario = null;
-
-        if (!string.IsNullOrEmpty(prontuarioJson))
+        try
         {
-            prontuario = JsonSerializer.Deserialize<Prontuario>(prontuarioJson);
-            _logger.LogInformation("Dados obtidos do cache Redis.");
-        }
-        else
-        {
-            _logger.LogInformation("Dados não encontrados no cache. Consultando o banco SQL...");
+            _logger.LogInformation($"Processando prontuário do médico ID {id}");
 
-            using (var conn = new SqlConnection(_sqlConnectionString))
+            var db = _redis.GetDatabase();
+
+            // 1️. Tenta obter do cache
+
+            string? prontuarioJson = await db.StringGetAsync($"consulta:{id}");
+
+            Prontuario? prontuario = null;
+
+            if (!string.IsNullOrEmpty(prontuarioJson))
             {
-                await conn.OpenAsync();
-                var cmd = new SqlCommand("SELECT m.Id, m.Nome, m.Crm, m.Especialidade FROM [dbo].[medicos] as m INNER JOIN [dbo].[consultas] as c ON c.MedicoId = m.Id WHERE c.Id = @Id", conn);
-                cmd.Parameters.AddWithValue("@Id", id);
+                prontuario = JsonSerializer.Deserialize<Prontuario>(prontuarioJson);
+                _logger.LogInformation("Dados obtidos do cache Redis.");
+            }
+            else
+            {
+                _logger.LogInformation("Dados não encontrados no cache. Consultando o banco SQL...");
 
-                using var reader = await cmd.ExecuteReaderAsync();
-                if (await reader.ReadAsync())
+                using (var conn = new SqlConnection(_sqlConnectionString))
                 {
-                    prontuario = new Prontuario
+                    await conn.OpenAsync();
+                    var cmd = new SqlCommand("SELECT m.Id, m.Nome, m.Crm, m.Especialidade FROM [dbo].[medicos] as m INNER JOIN [dbo].[consultas] as c ON c.MedicoId = m.Id WHERE c.Id = @Id", conn);
+                    cmd.Parameters.AddWithValue("@Id", id);
+
+                    using var reader = await cmd.ExecuteReaderAsync();
+                    if (await reader.ReadAsync())
                     {
-                        MedicoId = reader.GetInt32(0),
-                        MedicoNome = reader.GetString(1),
-                        MedicoCrm = reader.GetString(2),
-                        MedicoEspecialidade = reader.GetInt32(3),
-                        ConsultaData = reader.GetDateTime(4),
-                        ConsultaPaciente = reader.GetString(5)
-                    };
+                        prontuario = new Prontuario
+                        {
+                            MedicoId = reader.GetInt32(0),
+                            MedicoNome = reader.GetString(1),
+                            MedicoCrm = reader.GetString(2),
+                            MedicoEspecialidade = reader.GetInt32(3),
+                            ConsultaData = reader.GetDateTime(4),
+                            ConsultaPaciente = reader.GetString(5)
+                        };
 
-                    // 2️⃣ Salva no cache Redis por 1 hora
-                    await db.StringSetAsync(
-                        $"consulta:{id}",
-                        JsonSerializer.Serialize(prontuario),
-                        TimeSpan.FromHours(1));
+                        // 2️⃣ Salva no cache Redis por 1 hora
+                        await db.StringSetAsync(
+                            $"consulta:{id}",
+                            JsonSerializer.Serialize(prontuario),
+                            TimeSpan.FromHours(1));
 
-                    _logger.LogInformation("Dados do prontuário salvos no cache Redis.");
+                        _logger.LogInformation("Dados do prontuário salvos no cache Redis.");
+                    }
                 }
             }
-        }
 
-        if (prontuario == null)
+            if (prontuario == null)
+            {
+                return new NotFoundObjectResult($"Consulta com Id {id} não encontrada.");
+            }
+
+            // 2. Montar template do prontuário
+
+            _logger.LogInformation("Prontuário médico gerado:");
+            _logger.LogInformation(TemplateProntuario
+                , prontuario.ConsultaData
+                , prontuario.MedicoNome
+                , prontuario.MedicoCrm
+                , Enum.GetName(typeof(Especialidade)
+                , prontuario.MedicoEspecialidade)
+                , prontuario.ConsultaPaciente);
+
+            return new OkObjectResult($"Prontuário do médico {prontuario.MedicoNome} gerado com sucesso (ver logs).");
+        }
+        catch (Exception ex)
         {
-            return new NotFoundObjectResult($"Consulta com Id {id} não encontrada.");
+            _logger.LogError(ex, "Erro ao gerar prontuário médico.");
+            return new StatusCodeResult(StatusCodes.Status500InternalServerError);
         }
-
-        // 2. Montar template do prontuário
-
-        _logger.LogInformation("Prontuário médico gerado:");
-        _logger.LogInformation(TemplateProntuario
-            , prontuario.ConsultaData
-            , prontuario.MedicoNome
-            , prontuario.MedicoCrm
-            , Enum.GetName(typeof(Especialidade)
-            , prontuario.MedicoEspecialidade)
-            , prontuario.ConsultaPaciente);
-
-        return new OkObjectResult($"Prontuário do médico {prontuario.MedicoNome} gerado com sucesso (ver logs).");
     }
 }
 
