@@ -125,7 +125,7 @@ Medicação em uso:
         catch (Exception ex)
         {
             _logger.LogError(ex.Message);
-            _logger.LogError(ex, "Erro ao gerar prontuário médico.");
+            _logger.LogError(ex, "Erro ao gerar prontuário médico...");
             return new StatusCodeResult(StatusCodes.Status500InternalServerError);
         }
     }
