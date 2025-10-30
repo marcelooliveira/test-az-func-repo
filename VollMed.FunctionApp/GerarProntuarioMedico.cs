@@ -57,6 +57,8 @@ Medicação em uso:
 
             var db = _redis.GetDatabase();
 
+            _logger.LogInformation("_redis.GetDatabase OK");
+
             // 1️. Tenta obter do cache
 
             string? prontuarioJson = await db.StringGetAsync($"consulta:{id}");
