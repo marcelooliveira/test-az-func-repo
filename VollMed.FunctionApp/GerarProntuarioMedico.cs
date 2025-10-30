@@ -59,9 +59,17 @@ Medicação em uso:
 
             _logger.LogInformation("_redis.GetDatabase OK");
 
+            await db.StringSetAsync(
+                $"consulta:123",
+                JsonSerializer.Serialize(new Prontuario { MedicoCrm = "123"}),
+                TimeSpan.FromHours(1));
+
+            _logger.LogInformation("db.StringSetAsync OK");
+
             // 1️. Tenta obter do cache
 
             string? prontuarioJson = await db.StringGetAsync($"consulta:{id}");
+            _logger.LogInformation("db.StringGetAsync executado");
 
             Prontuario? prontuario = null;
 
